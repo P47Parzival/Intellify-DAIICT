@@ -7,7 +7,7 @@ import os
 class AnomalyModel:
     def __init__(self, 
                  lgb_main_path="lgb_main_smote_weighted.pkl",
-                 lgb_specialist_path="lgb_specialist_Web_Attack_XSS.pkl",
+                 lgb_specialist_path="lgb_specialist_Web_Attack_-_XSS.pkl",
                  iso_forest_path="isolation_forest.pkl",
                  one_class_svm_path="one_class_svm.pkl",
                  autoencoder_path="autoencoder_anomaly_model.h5",
@@ -20,7 +20,7 @@ class AnomalyModel:
             self.lgb_specialist = joblib.load(os.path.join(base_dir, lgb_specialist_path))
             self.iso_forest = joblib.load(os.path.join(base_dir, iso_forest_path))
             self.one_class_svm = joblib.load(os.path.join(base_dir, one_class_svm_path))
-            self.autoencoder = load_model(os.path.join(base_dir, autoencoder_path))
+            self.autoencoder = load_model(os.path.join(base_dir, autoencoder_path), compile=False)
             self.scaler = joblib.load(os.path.join(base_dir, scaler_path))
             self.label_encoder = joblib.load(os.path.join(base_dir, label_encoder_path))
             self.autoencoder_threshold = autoencoder_threshold
@@ -37,8 +37,9 @@ class AnomalyModel:
 
     def is_malicious(self, feature_df: pd.DataFrame) -> bool:
         """
-        Predicts if a feature DataFrame is malicious using all models.
-        Expects a DataFrame with 77 features matching FEATURE_NAMES.
+            Predicts if a feature DataFrame is malicious using all models.
+            Expects a DataFrame with 77 features matching FEATURE_NAMES.
+            Returns True if any model predicts malicious, else False.
         """
         if any(model is None for model in [self.lgb_main, self.lgb_specialist, 
                                          self.iso_forest, self.one_class_svm, 
@@ -47,6 +48,8 @@ class AnomalyModel:
             return False
 
         try:
+            # print("Generated features:", feature_df.columns.tolist())
+            # print("Scaler expects:", self.scaler.feature_names_in_)
             # Validate feature count and names
             expected_features = 77
             if feature_df.shape[1] != expected_features:
