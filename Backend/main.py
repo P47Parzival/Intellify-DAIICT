@@ -3,6 +3,7 @@ import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
+import pandas as pd
 
 from log_generator import generate_log
 from ml_model import model_instance
@@ -12,7 +13,7 @@ app = FastAPI()
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"], # Added localhost:3000 for local dev
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -32,7 +33,10 @@ class ConnectionManager:
 
     async def broadcast(self, message: str):
         for connection in self.active_connections:
-            await connection.send_text(message)
+            try:
+                await connection.send_text(message)
+            except Exception as e:
+                print(f"Error broadcasting to connection: {e}")
 
 # Create managers for both raw and processed alert streams
 raw_manager = ConnectionManager()
@@ -41,22 +45,27 @@ processed_manager = ConnectionManager()
 async def log_processing_task():
     """Generate, classify, and broadcast logs via WebSockets."""
     while True:
-        # FIX: Removed 'await' as generate_log is a synchronous function
-        log = generate_log()
-        
-        # Broadcast the raw log to all connected raw clients
-        await raw_manager.broadcast(json.dumps(log))
-        
-        # Use the ML model to classify the log
-        is_malicious_flag = model_instance.is_malicious(log)
-        
-        if is_malicious_flag:
-            log_with_flag = log.copy()
-            log_with_flag["is_malicious"] = True
-            # Broadcast the malicious log to all connected processed clients
-            await processed_manager.broadcast(json.dumps(log_with_flag))
+        try:
+            # Unpack the tuple from the generator
+            log_dict, feature_df = generate_log()
             
-        await asyncio.sleep(1) # Control the rate of log generation
+            # Broadcast the raw log dictionary to all connected raw clients
+            await raw_manager.broadcast(json.dumps(log_dict))
+            
+            # Use the ML model to classify the feature DataFrame
+            is_malicious_flag = model_instance.is_malicious(feature_df)
+            
+            if is_malicious_flag:
+                log_with_flag = log_dict.copy()
+                log_with_flag["is_malicious"] = True
+                # Broadcast the malicious log to all connected processed clients
+                await processed_manager.broadcast(json.dumps(log_with_flag))
+            
+            # Control the rate of log generation (adjust as needed)
+            await asyncio.sleep(1)
+        except Exception as e:
+            print(f"Error in log processing task: {e}")
+            await asyncio.sleep(1)  # Prevent tight loop on errors
 
 @app.on_event("startup")
 async def startup_event():
@@ -69,7 +78,6 @@ async def websocket_raw_alerts(websocket: WebSocket):
     print("Raw client connected")
     try:
         while True:
-            # Keep the connection alive by waiting for messages (or timeouts)
             await websocket.receive_text()
     except WebSocketDisconnect:
         raw_manager.disconnect(websocket)
@@ -81,7 +89,6 @@ async def websocket_processed_alerts(websocket: WebSocket):
     print("Processed client connected")
     try:
         while True:
-            # Keep the connection alive
             await websocket.receive_text()
     except WebSocketDisconnect:
         processed_manager.disconnect(websocket)

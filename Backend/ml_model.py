@@ -1,91 +1,99 @@
 import joblib
 import numpy as np
 import pandas as pd
+from tensorflow.keras.models import load_model
 import os
 
 class AnomalyModel:
-    def __init__(self, model_path="isolation_forest.pkl", scaler_path="scaler.pkl"):
+    def __init__(self, 
+                 lgb_main_path="lgb_main_smote_weighted.pkl",
+                 lgb_specialist_path="lgb_specialist_Web_Attack_XSS.pkl",
+                 iso_forest_path="isolation_forest.pkl",
+                 one_class_svm_path="one_class_svm.pkl",
+                 autoencoder_path="autoencoder_anomaly_model.h5",
+                 scaler_path="scaler.pkl",
+                 label_encoder_path="label_encoder.pkl",
+                 autoencoder_threshold=0.0001):  # Placeholder, adjust after computing
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        full_model_path = os.path.join(base_dir, model_path)
-        full_scaler_path = os.path.join(base_dir, scaler_path)
-
         try:
-            self.model = joblib.load(full_model_path)
-            self.scaler = joblib.load(full_scaler_path)
-            # This is the crucial list of feature names from your training data
-            # YOU MUST REPLACE THIS WITH THE ACTUAL COLUMN NAMES FROM YOUR NOTEBOOK
-            self.feature_names = self.scaler.get_feature_names_out()
-            print("Successfully loaded model and scaler.")
-            print(f"Model expects {len(self.feature_names)} features.")
+            self.lgb_main = joblib.load(os.path.join(base_dir, lgb_main_path))
+            self.lgb_specialist = joblib.load(os.path.join(base_dir, lgb_specialist_path))
+            self.iso_forest = joblib.load(os.path.join(base_dir, iso_forest_path))
+            self.one_class_svm = joblib.load(os.path.join(base_dir, one_class_svm_path))
+            self.autoencoder = load_model(os.path.join(base_dir, autoencoder_path))
+            self.scaler = joblib.load(os.path.join(base_dir, scaler_path))
+            self.label_encoder = joblib.load(os.path.join(base_dir, label_encoder_path))
+            self.autoencoder_threshold = autoencoder_threshold
+            print("Successfully loaded all models and preprocessors.")
         except Exception as e:
             print(f"Error loading model files: {e}")
-            self.model = None
+            self.lgb_main = None
+            self.lgb_specialist = None
+            self.iso_forest = None
+            self.one_class_svm = None
+            self.autoencoder = None
             self.scaler = None
-            self.feature_names = []
+            self.label_encoder = None
 
-    def _preprocess(self, log: dict) -> np.ndarray:
+    def is_malicious(self, feature_df: pd.DataFrame) -> bool:
         """
-        Transforms a log dictionary into a numerical feature vector using pandas
-        to ensure column order and naming matches the training data.
+        Predicts if a feature DataFrame is malicious using all models.
+        Expects a DataFrame with 77 features matching FEATURE_NAMES.
         """
-        # Create a single-row DataFrame with the expected column names, initialized to 0
-        df = pd.DataFrame(0, index=[0], columns=self.feature_names)
-
-        # --- FEATURE ENGINEERING ---
-        # You must now populate the DataFrame columns based on the raw log.
-        # This section MUST match the feature engineering in your training notebook.
-        
-        # Example 1: Direct mapping for numerical features
-        if 'status' in df.columns:
-            df['status'] = log.get('status', 200)
-        if 'size' in df.columns:
-            df['size'] = log.get('size', 0)
-
-        # Example 2: One-Hot Encoding for categorical features (e.g., method)
-        method = log.get('method', 'GET').upper()
-        method_col = f'method_{method}'
-        if method_col in df.columns:
-            df[method_col] = 1
-            
-        # Example 3: Feature extraction from 'request' string
-        request_str = log.get('request', '')
-        if 'request_length' in df.columns:
-            df['request_length'] = len(request_str)
-        if 'num_special_chars' in df.columns:
-            df['num_special_chars'] = sum(1 for char in request_str if not char.isalnum())
-        if 'contains_sql_keyword' in df.columns:
-            df['contains_sql_keyword'] = 1 if 'select' in request_str.lower() or 'union' in request_str.lower() else 0
-
-        # ... and so on for all 77 features ...
-        # You need to add logic for every feature your model was trained on.
-        # Check your notebook for things like: user_agent parsing, protocol features, etc.
-
-        # The DataFrame `df` now has the correct shape and column order.
-        return df
-
-    def is_malicious(self, log: dict) -> bool:
-        """
-        Predicts if a log is malicious (an anomaly).
-        """
-        # FIX: Explicitly check the size of the numpy array.
-        if self.model is None or self.scaler is None or self.feature_names.size == 0:
+        if any(model is None for model in [self.lgb_main, self.lgb_specialist, 
+                                         self.iso_forest, self.one_class_svm, 
+                                         self.autoencoder, self.scaler, self.label_encoder]):
+            print("One or more models failed to load.")
             return False
 
         try:
-            # 1. Preprocess the log data into a DataFrame
-            processed_df = self._preprocess(log)
-            
-            # 2. Scale the features
-            scaled_features = self.scaler.transform(processed_df)
-            
-            # 3. Make a prediction
-            prediction = self.model.predict(scaled_features)
-            
-            # 4. Return True if it's an anomaly (-1)
-            return prediction[0] == -1
+            # Validate feature count and names
+            expected_features = 77
+            if feature_df.shape[1] != expected_features:
+                raise ValueError(f"Expected {expected_features} features, got {feature_df.shape[1]}")
+            if not all(col in feature_df.columns for col in self.scaler.feature_names_in_):
+                raise ValueError("Feature names do not match scaler's expectations")
+
+            # Scale features
+            X_scaled = self.scaler.transform(feature_df)
+
+            # Predict with LightGBM main (multiclass)
+            y_pred_prob = self.lgb_main.predict(X_scaled)
+            y_pred_labels = np.argmax(y_pred_prob, axis=1)
+            benign_label = self.label_encoder.transform(['Benign'])[0]
+            lgb_main_malicious = y_pred_labels != benign_label
+
+            # Predict with LightGBM specialist (Web Attack - XSS)
+            y_pred_spec = self.lgb_specialist.predict(X_scaled)
+            lgb_spec_malicious = (y_pred_spec > 0.5).astype(int)
+
+            # Predict with Isolation Forest
+            iso_pred = self.iso_forest.predict(X_scaled)
+            iso_malicious = iso_pred == -1
+
+            # Predict with One-Class SVM
+            svm_pred = self.one_class_svm.predict(X_scaled)
+            svm_malicious = svm_pred == -1
+
+            # Predict with Autoencoder
+            reconstructions = self.autoencoder.predict(X_scaled, verbose=0)
+            mse = np.mean(np.power(X_scaled - reconstructions, 2), axis=1)
+            autoencoder_malicious = mse > self.autoencoder_threshold
+
+            # Combine predictions: Flag as malicious if any model detects
+            is_malicious = (
+                lgb_main_malicious[0] or 
+                lgb_spec_malicious[0] or 
+                iso_malicious[0] or 
+                svm_malicious[0] or 
+                autoencoder_malicious[0]
+            )
+
+            return is_malicious
         except Exception as e:
             print(f"Error during prediction: {e}")
             return False
 
 # Create a single instance of the model
-model_instance = AnomalyModel()
+# TODO: Compute threshold dynamically or load from training
+model_instance = AnomalyModel(autoencoder_threshold=0.0001)
