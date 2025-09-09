@@ -19,7 +19,9 @@ const AlertStream = () => {
 
     // Clean up the WebSocket connection when the component unmounts
     return () => {
-      ws.close();
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
     };
   }, []); // The empty dependency array ensures this effect runs only once
 
