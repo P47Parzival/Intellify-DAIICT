@@ -12,7 +12,7 @@ app = FastAPI()
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000"], # Added localhost:3000 for local dev
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -41,7 +41,8 @@ processed_manager = ConnectionManager()
 async def log_processing_task():
     """Generate, classify, and broadcast logs via WebSockets."""
     while True:
-        log = await generate_log()
+        # FIX: Removed 'await' as generate_log is a synchronous function
+        log = generate_log()
         
         # Broadcast the raw log to all connected raw clients
         await raw_manager.broadcast(json.dumps(log))
@@ -65,9 +66,10 @@ async def startup_event():
 @app.websocket("/ws/raw")
 async def websocket_raw_alerts(websocket: WebSocket):
     await raw_manager.connect(websocket)
+    print("Raw client connected")
     try:
         while True:
-            # Keep the connection alive
+            # Keep the connection alive by waiting for messages (or timeouts)
             await websocket.receive_text()
     except WebSocketDisconnect:
         raw_manager.disconnect(websocket)
@@ -76,6 +78,7 @@ async def websocket_raw_alerts(websocket: WebSocket):
 @app.websocket("/ws/processed")
 async def websocket_processed_alerts(websocket: WebSocket):
     await processed_manager.connect(websocket)
+    print("Processed client connected")
     try:
         while True:
             # Keep the connection alive
