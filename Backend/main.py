@@ -46,27 +46,25 @@ async def log_processing_task():
     """Generate, classify, and broadcast logs via WebSockets."""
     while True:
         try:
-            # Unpack the tuple from the generator
             log_dict, feature_df = generate_log()
 
-            # Convert the feature DataFrame row to a dictionary for JSON serialization
-            # This is the actual data the model will process
+            # Combine metadata and feature data into a single payload
             feature_data_dict = feature_df.iloc[0].to_dict()
-            
-            # Add a timestamp for context on the frontend
-            feature_data_dict['timestamp'] = log_dict['timestamp']
+            payload = log_dict
+            payload['features'] = feature_data_dict
 
-            # Broadcast the full feature data to all connected raw clients
-            await raw_manager.broadcast(json.dumps(feature_data_dict))
+            # Convert payload to JSON string for broadcasting
+            payload_json = json.dumps(payload)
+
+            # Broadcast the full payload to all connected raw clients
+            await raw_manager.broadcast(payload_json)
             
-            # Use the ML model to classify the feature DataFrame
             is_malicious_flag = model_instance.is_malicious(feature_df)
             
             if is_malicious_flag:
-                # If malicious, broadcast the same feature data to processed clients
-                await processed_manager.broadcast(json.dumps(feature_data_dict))
+                # If malicious, broadcast the same full payload
+                await processed_manager.broadcast(payload_json)
             
-            # Control the rate of log generation (adjust as needed)
             await asyncio.sleep(1)
         except Exception as e:
             print(f"Error in log processing task: {e}")

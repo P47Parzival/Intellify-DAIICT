@@ -1,7 +1,8 @@
 import random
-import datetime
+from datetime import datetime
 import numpy as np
 import pandas as pd
+import geoip2.database
 
 # List of 77 feature names that match the scaler's expectations
 FEATURE_NAMES = [
@@ -189,6 +190,14 @@ MALICIOUS_TEMPLATE = {
     'Idle Min': 0
 }
 
+# --- Initialize GeoIP Reader ---
+# This should be outside the function so it's only loaded once.
+try:
+    geoip_reader = geoip2.database.Reader('GeoLite2-City.mmdb')
+except FileNotFoundError:
+    print("GeoLite2-City.mmdb not found. Map functionality will be limited.")
+    geoip_reader = None
+
 def generate_log():
     """
     Generates a tuple containing:
@@ -199,9 +208,27 @@ def generate_log():
 
     # --- 1. Generate the human-readable log ---
     log_dict = {
-        "timestamp": datetime.datetime.now().isoformat(),
-        "ip": f"{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}",
+        "timestamp": datetime.now().isoformat(),
+        "ip": f"{random.randint(1, 223)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}",
+        "method": random.choice(["GET", "POST", "DELETE", "PUT"]),
+        "path": f"/{random.randint(1, 100)}",
+        "status": random.choice([200, 201, 304, 404, 500]),
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
+
+    # Add GeoIP data if the reader is available
+    if geoip_reader:
+        try:
+            response = geoip_reader.city(log_dict['ip'])
+            log_dict['location'] = {
+                'latitude': response.location.latitude,
+                'longitude': response.location.longitude,
+                'city': response.city.name,
+                'country': response.country.name
+            }
+        except geoip2.errors.AddressNotFoundError:
+            # IP not found in the database (e.g., private IP), skip adding location
+            log_dict['location'] = None
 
     if is_malicious:
         log_dict.update({

@@ -1,78 +1,21 @@
-// import React, { useEffect, useState } from 'react';
-
-// // Define a type for your log objects for better type safety
-// interface LogEntry {
-//   [key: string]: any; // A simple flexible type for the log object
-// }
-
-// const AlertStream = () => {
-//   const [logs, setLogs] = useState<LogEntry[]>([]);
-
-//   useEffect(() => {
-//     const ws = new WebSocket('ws://localhost:8000/ws/raw');
-
-//     ws.onmessage = (event) => {
-//       const newLog = JSON.parse(event.data);
-//       // Use the functional update form to prepend the new log to the array
-//       setLogs(prevLogs => [newLog, ...prevLogs]);
-//     };
-
-//     // Clean up the WebSocket connection when the component unmounts
-//     return () => {
-//       if (ws.readyState === WebSocket.OPEN) {
-//         ws.close();
-//       }
-//     };
-//   }, []); // The empty dependency array ensures this effect runs only once
-
-//   return (
-//     <div className="w-1/2 p-4 overflow-y-auto h-screen flex flex-col">
-//       <h2 className="text-xl font-bold mb-4 sticky top-0 bg-gray-900 py-2">Raw Alerts</h2>
-//       <div className="bg-gray-800 p-4 rounded-lg flex-grow">
-//         {/* Since we are prepending, we no longer need to slice or reverse */}
-//         {logs.map((log, index) => (
-//           <div key={index} className="text-sm p-2 border-b border-gray-700 font-mono">
-//             <pre>{JSON.stringify(log, null, 2)}</pre>
-//           </div>
-//         ))}
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default AlertStream;
-
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Eye, Clock } from 'lucide-react';
 
-// Define a type for your log objects for better type safety
 interface LogEntry {
-  [key: string]: any; // A simple flexible type for the log object
+  [key: string]: any;
 }
 
-const AlertStream = () => {
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+interface AlertStreamProps {
+  logs: LogEntry[];
+}
 
-  useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8000/ws/raw');
-
-    ws.onmessage = (event) => {
-      const newLog = JSON.parse(event.data);
-      // Use the functional update form to prepend the new log to the array
-      setLogs(prevLogs => [newLog, ...prevLogs]);
-    };
-
-    // Clean up the WebSocket connection when the component unmounts
-    return () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
-    };
-  }, []); // The empty dependency array ensures this effect runs only once
+const AlertStream: React.FC<AlertStreamProps> = ({ logs }) => {
+  // The component now just receives logs as a prop and renders them.
+  // All WebSocket logic has been moved to App.tsx.
 
   return (
-    <div className="w-1/2 p-4 overflow-y-auto h-screen flex flex-col bg-gradient-to-br from-slate-800 to-slate-900">
-      {/* Header Section */}
+    <div className="w-1/2 p-4 overflow-y-auto h-[60vh] flex flex-col bg-gradient-to-br from-slate-800 to-slate-900">
+      {/* Header Section (remains the same) */}
       <div className="bg-gradient-to-r from-blue-900/50 to-cyan-800/30 p-4 rounded-t-lg border border-blue-500/30 mb-4 sticky top-0 z-10 bg-gray-900 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -91,7 +34,7 @@ const AlertStream = () => {
         </div>
       </div>
 
-      {/* Stream Container */}
+      {/* Stream Container (remains the same, but uses props.logs) */}
       <div className="bg-black/40 backdrop-blur-sm rounded-lg border border-blue-500/20 shadow-2xl flex-grow flex flex-col">
         <div className="p-3 bg-gradient-to-r from-blue-900/20 to-transparent border-b border-blue-500/20">
           <div className="flex items-center justify-between text-xs">
@@ -117,8 +60,8 @@ const AlertStream = () => {
                     <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-blue-300 font-semibold text-sm uppercase tracking-wide">DATA PACKET #{String(index + 1).padStart(4, '0')}</span>
-                        <span className="text-blue-400/70 text-xs font-mono">{new Date().toLocaleTimeString()}</span>
+                        <span className="text-blue-300 font-semibold text-sm uppercase tracking-wide">DATA PACKET #{String(logs.length - index).padStart(4, '0')}</span>
+                        <span className="text-blue-400/70 text-xs font-mono">{new Date(log.timestamp).toLocaleTimeString()}</span>
                       </div>
                       <pre className="text-blue-200/90 text-xs font-mono bg-blue-950/20 p-3 rounded border border-blue-500/20 overflow-x-auto whitespace-pre-wrap">
                         {JSON.stringify(log, null, 2)}
@@ -132,25 +75,15 @@ const AlertStream = () => {
         </div>
       </div>
 
-      {/* Custom Scrollbar Styles */}
+      {/* Custom Scrollbar Styles (remains the same) */}
       <style>
         {`
-    .stream-scrollbar::-webkit-scrollbar {
-      width: 4px;
-    }
-    .stream-scrollbar::-webkit-scrollbar-track {
-      background: rgba(0, 0, 0, 0.2);
-    }
-    .stream-scrollbar::-webkit-scrollbar-thumb {
-      background: rgba(59, 130, 246, 0.4);
-      border-radius: 2px;
-    }
-    .stream-scrollbar::-webkit-scrollbar-thumb:hover {
-      background: rgba(59, 130, 246, 0.6);
-    }
-  `}
+          .stream-scrollbar::-webkit-scrollbar { width: 4px; }
+          .stream-scrollbar::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+          .stream-scrollbar::-webkit-scrollbar-thumb { background: rgba(59, 130, 246, 0.4); border-radius: 2px; }
+          .stream-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(59, 130, 246, 0.6); }
+        `}
       </style>
-
     </div>
   );
 };
