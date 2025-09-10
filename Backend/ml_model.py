@@ -99,4 +99,6 @@ class AnomalyModel:
 
 # Create a single instance of the model
 # TODO: Compute threshold dynamically or load from training
-model_instance = AnomalyModel(autoencoder_threshold=0.0001)
+# We increase the threshold to a more realistic value to avoid false positives.
+# A value of 0.1 is a better starting point than 0.0001.
+model_instance = AnomalyModel(autoencoder_threshold=0.1)

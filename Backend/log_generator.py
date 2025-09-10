@@ -110,7 +110,7 @@ BENIGN_TEMPLATE = {
 }
 
 MALICIOUS_TEMPLATE = {
-    'Protocol': 6, # TCP
+    'Protocol': lambda: random.choice([6, 17]),  # TCP or UDP
     'Flow Duration': lambda: random.randint(1000000, 5000000),
     'Total Fwd Packets': lambda: random.randint(10, 50),
     'Total Backward Packets': lambda: random.randint(2, 10),
@@ -190,63 +190,12 @@ MALICIOUS_TEMPLATE = {
 }
 
 def generate_log():
-    # """
-    # Generates a tuple containing:
-    # 1. A human-readable log dictionary for the frontend.
-    # 2. A pandas DataFrame with 77 features for the ML model.
-    # """
-    # is_malicious = random.random() < 0.1  # 10% chance of being malicious
-
-    # # --- 1. Generate the human-readable log ---
-    # log_dict = {
-    #     "timestamp": datetime.datetime.now().isoformat(),
-    #     "ip": f"{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}",
-    # }
-
-    # if is_malicious:
-    #     log_dict.update({
-    #         "method": random.choice(["GET", "POST"]),
-    #         "path": "/login.php?user=' or 1=1--",
-    #         "status": 401,
-    #         "user_agent": "sqlmap/1.5.11"
-    #     })
-    #     base_template = MALICIOUS_TEMPLATE
-    # else:
-    #     log_dict.update({
-    #         "method": random.choice(["GET", "POST", "PUT", "DELETE"]),
-    #         "path": f"/{random.choice(['api/v1/users', 'assets/img.png', 'search/blog', ''])}{random.randint(1,100)}",
-    #         "status": random.choice([200, 201, 304, 404]),
-    #         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    #     })
-    #     base_template = BENIGN_TEMPLATE
-
-    # # --- 2. Generate the corresponding feature DataFrame ---
-    # feature_dict = {}
-    # for name in FEATURE_NAMES:
-    #     value = base_template.get(name, 0)
-    #     # If the value is a callable (lambda), evaluate it
-    #     if callable(value):
-    #         value = value()
-    #     # Add jitter to non-zero values
-    #     if isinstance(value, (int, float)) and value > 0:
-    #         jitter = value * 0.1
-    #         value = random.uniform(value - jitter, value + jitter)
-    #     feature_dict[name] = value
-
-    # # Ensure 'Destination Port' aligns with status
-    # feature_dict['Destination Port'] = 80 if log_dict["status"] != 401 else 443
-
-    # # Create DataFrame with correct column names
-    # feature_df = pd.DataFrame([feature_dict], columns=FEATURE_NAMES)
-
-    # return log_dict, feature_df
-
     """
     Generates a tuple containing:
     1. A human-readable log dictionary for the frontend.
     2. A pandas DataFrame with 77 features for the ML model.
     """
-    is_malicious = random.random() < 0.1  # 10% chance of being malicious
+    is_malicious = random.random() < 0.2  # 90% chance of being malicious
 
     # --- 1. Generate the human-readable log ---
     log_dict = {

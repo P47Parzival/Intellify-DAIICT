@@ -48,24 +48,28 @@ async def log_processing_task():
         try:
             # Unpack the tuple from the generator
             log_dict, feature_df = generate_log()
+
+            # Convert the feature DataFrame row to a dictionary for JSON serialization
+            # This is the actual data the model will process
+            feature_data_dict = feature_df.iloc[0].to_dict()
             
-            # Broadcast the raw log dictionary to all connected raw clients
-            await raw_manager.broadcast(json.dumps(log_dict))
+            # Add a timestamp for context on the frontend
+            feature_data_dict['timestamp'] = log_dict['timestamp']
+
+            # Broadcast the full feature data to all connected raw clients
+            await raw_manager.broadcast(json.dumps(feature_data_dict))
             
             # Use the ML model to classify the feature DataFrame
             is_malicious_flag = model_instance.is_malicious(feature_df)
             
             if is_malicious_flag:
-                log_with_flag = log_dict.copy()
-                log_with_flag["is_malicious"] = True
-                # Broadcast the malicious log to all connected processed clients
-                await processed_manager.broadcast(json.dumps(log_with_flag))
+                # If malicious, broadcast the same feature data to processed clients
+                await processed_manager.broadcast(json.dumps(feature_data_dict))
             
             # Control the rate of log generation (adjust as needed)
             await asyncio.sleep(1)
         except Exception as e:
             print(f"Error in log processing task: {e}")
-            await asyncio.sleep(1)  # Prevent tight loop on errors
 
 @app.on_event("startup")
 async def startup_event():
