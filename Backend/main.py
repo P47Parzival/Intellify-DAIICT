@@ -53,17 +53,20 @@ async def log_processing_task():
             payload = log_dict
             payload['features'] = feature_data_dict
 
-            # Convert payload to JSON string for broadcasting
-            payload_json = json.dumps(payload)
-
             # Broadcast the full payload to all connected raw clients
-            await raw_manager.broadcast(payload_json)
+            await raw_manager.broadcast(json.dumps(payload))
             
-            is_malicious_flag = model_instance.is_malicious(feature_df)
+            # Get the detailed prediction result from the model
+            prediction_result = model_instance.is_malicious(feature_df)
             
-            if is_malicious_flag:
-                # If malicious, broadcast the same full payload
-                await processed_manager.broadcast(payload_json)
+            # Check the boolean flag from the result dictionary
+            if prediction_result["is_malicious"]:
+                # Add risk score and reason to the payload for malicious alerts
+                payload['risk_score'] = prediction_result['risk_score']
+                payload['reason'] = prediction_result['reason']
+                
+                # Broadcast the enriched payload to processed clients
+                await processed_manager.broadcast(json.dumps(payload))
             
             await asyncio.sleep(1)
         except Exception as e:

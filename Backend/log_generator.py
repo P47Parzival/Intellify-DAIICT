@@ -190,6 +190,52 @@ MALICIOUS_TEMPLATE = {
     'Idle Min': 0
 }
 
+MALICIOUS_TEMPLATES = {
+    "SQL_INJECTION": {
+        "log_info": {"path": "/products.php?id=1' OR '1'='1", "user_agent": "sqlmap/1.6"},
+        "features": {
+            'Fwd Packets Length Total': lambda: random.randint(100, 400),
+            'Fwd Packet Length Mean': lambda: random.uniform(50, 150),
+            'PSH Flag Count': 1, # PSH flag is common
+            'Flow Duration': lambda: random.randint(5000, 20000),
+        }
+    },
+    "XSS_ATTACK": {
+        "log_info": {"path": "/search?q=<script>alert('XSS')</script>", "user_agent": "Mozilla/5.0"},
+        "features": {
+            'Fwd Packets Length Total': lambda: random.randint(500, 1500),
+            'Fwd Packet Length Max': lambda: random.randint(400, 1000),
+            'Fwd Packet Length Mean': lambda: random.uniform(200, 500),
+            'Fwd PSH Flags': 1, # PSH flag is common to push the script payload
+            'Flow Duration': lambda: random.randint(10000, 50000),
+        }
+    },
+    "STATISTICAL_ANOMALY": {
+        "log_info": {"path": "/api/v2/metrics", "user_agent": "Internal-Scanner/1.0"},
+        "features": {
+            'Flow Duration': lambda: random.randint(1, 100),
+            'Total Fwd Packets': lambda: random.randint(1000, 5000),
+            'Flow Packets/s': lambda: random.uniform(100000, 900000),
+            'Fwd Packets/s': lambda: random.uniform(100000, 900000),
+            'Init Fwd Win Bytes': 0,
+        }
+    },
+    "STRUCTURAL_ANOMALY": {
+        "log_info": {"path": "/auth/token", "user_agent": "Go-http-client/1.1"},
+        "features": {
+            'Total Fwd Packets': 10,
+            'Fwd Packets Length Total': 0,
+            'Fwd Packet Length Max': 0,
+            'Fwd Packet Length Mean': 0,
+            'Fwd Packet Length Std': 0,
+            'Flow Bytes/s': 0,
+            'ACK Flag Count': 0,
+            'SYN Flag Count': 1,
+        }
+    }
+}
+
+
 # --- Initialize GeoIP Reader ---
 # This should be outside the function so it's only loaded once.
 try:
@@ -204,7 +250,7 @@ def generate_log():
     1. A human-readable log dictionary for the frontend.
     2. A pandas DataFrame with 77 features for the ML model.
     """
-    is_malicious = random.random() < 0.2  # 90% chance of being malicious
+    is_malicious = random.random() < 0.3  # 30% chance of being malicious
 
     # --- 1. Generate the human-readable log ---
     log_dict = {
@@ -231,18 +277,22 @@ def generate_log():
             log_dict['location'] = None
 
     if is_malicious:
-        log_dict.update({
-            "method": random.choice(["GET", "POST"]),
-            "path": "/login.php?user=' or 1=1--",
-            "status": 401,
-            "user_agent": "sqlmap/1.5.11"
-        })
-        base_template = MALICIOUS_TEMPLATE
+        # --- UPDATED: Randomly select an attack type ---
+        attack_type = random.choice(list(MALICIOUS_TEMPLATES.keys()))
+        attack_template = MALICIOUS_TEMPLATES[attack_type]
+        
+        # --- CRITICAL CHANGE: Start from a BENIGN baseline, then apply attack features ---
+        base_template = BENIGN_TEMPLATE.copy()
+        base_template.update(attack_template["features"])
+        
+        # Update the human-readable log info
+        log_dict.update(attack_template["log_info"])
+        log_dict["attack_type_simulated"] = attack_type # Add for clarity
     else:
         log_dict.update({
             "method": random.choice(["GET", "POST", "PUT", "DELETE"]),
-            "path": f"/{random.choice(['api/v1/users', 'assets/img.png', 'search/blog', ''])}{random.randint(1,100)}",
-            "status": random.choice([200, 201, 304, 404]),
+            "path": f"/{random.choice(['api/v1/users', 'assets/img.png', 'search/blog', ''])}",
+            "status": random.choice([200, 201, 304]),
             "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         })
         base_template = BENIGN_TEMPLATE
@@ -255,17 +305,10 @@ def generate_log():
         if callable(value):
             value = value()
         # Add jitter to non-zero numerical values
-        if isinstance(value, (int, float)) and value > 0:
+        if isinstance(value, (int, float)) and value > 0 and name not in ['Total Fwd Packets', 'Fwd Packets Length Total']:
             jitter = value * 0.1
             value = random.uniform(value - jitter, value + jitter)
         feature_dict[name] = value
-
-    # The scaler expects 'Protocol' (e.g., 6 for TCP) instead of 'Destination Port'
-    # We'll just use a default of 6 for TCP for all generated logs.
-    feature_dict['Protocol'] = 6
-
-    # Ensure 'Destination Port' aligns with HTTP status
-    feature_dict['Destination Port'] = 80 if log_dict["status"] != 401 else 443
 
     # Create DataFrame with correct column names
     feature_df = pd.DataFrame([feature_dict], columns=FEATURE_NAMES)

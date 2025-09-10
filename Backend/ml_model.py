@@ -35,21 +35,18 @@ class AnomalyModel:
             self.scaler = None
             self.label_encoder = None
 
-    def is_malicious(self, feature_df: pd.DataFrame) -> bool:
+    def is_malicious(self, feature_df: pd.DataFrame) -> dict:
         """
             Predicts if a feature DataFrame is malicious using all models.
-            Expects a DataFrame with 77 features matching FEATURE_NAMES.
-            Returns True if any model predicts malicious, else False.
+            Returns a dictionary with the prediction, risk score, and reason.
         """
         if any(model is None for model in [self.lgb_main, self.lgb_specialist, 
                                          self.iso_forest, self.one_class_svm, 
                                          self.autoencoder, self.scaler, self.label_encoder]):
             print("One or more models failed to load.")
-            return False
+            return {"is_malicious": False, "risk_score": 0, "reason": "Models not loaded"}
 
         try:
-            # print("Generated features:", feature_df.columns.tolist())
-            # print("Scaler expects:", self.scaler.feature_names_in_)
             # Validate feature count and names
             expected_features = 77
             if feature_df.shape[1] != expected_features:
@@ -60,42 +57,57 @@ class AnomalyModel:
             # Scale features
             X_scaled = self.scaler.transform(feature_df)
 
+            reasons = []
+            risk_score = 0
+
+            # --- Model Predictions ---
+            # Each model contributes to the risk score and adds a reason if it flags the traffic.
+
             # Predict with LightGBM main (multiclass)
             y_pred_prob = self.lgb_main.predict(X_scaled)
             y_pred_labels = np.argmax(y_pred_prob, axis=1)
             benign_label = self.label_encoder.transform(['Benign'])[0]
-            lgb_main_malicious = y_pred_labels != benign_label
+            if y_pred_labels[0] != benign_label:
+                reasons.append("General Malicious Pattern (LGBM)")
+                risk_score += 40
 
             # Predict with LightGBM specialist (Web Attack - XSS)
             y_pred_spec = self.lgb_specialist.predict(X_scaled)
-            lgb_spec_malicious = (y_pred_spec > 0.5).astype(int)
+            if y_pred_spec[0] > 0.5:
+                reasons.append("Potential XSS Attack (Specialist LGBM)")
+                risk_score += 70 # Higher weight for specialist model
 
             # Predict with Isolation Forest
-            iso_pred = self.iso_forest.predict(X_scaled)
-            iso_malicious = iso_pred == -1
+            if self.iso_forest.predict(X_scaled)[0] == -1:
+                reasons.append("Anomalous Traffic (Isolation Forest)")
+                risk_score += 30
 
             # Predict with One-Class SVM
-            svm_pred = self.one_class_svm.predict(X_scaled)
-            svm_malicious = svm_pred == -1
+            if self.one_class_svm.predict(X_scaled)[0] == -1:
+                reasons.append("Anomalous Traffic (One-Class SVM)")
+                risk_score += 30
 
             # Predict with Autoencoder
             reconstructions = self.autoencoder.predict(X_scaled, verbose=0)
             mse = np.mean(np.power(X_scaled - reconstructions, 2), axis=1)
-            autoencoder_malicious = mse > self.autoencoder_threshold
+            if mse[0] > self.autoencoder_threshold:
+                reasons.append("Structural Anomaly (Autoencoder)")
+                risk_score += 50
 
-            # Combine predictions: Flag as malicious if any model detects
-            is_malicious = (
-                lgb_main_malicious[0] or 
-                lgb_spec_malicious[0] or 
-                iso_malicious[0] or 
-                svm_malicious[0] or 
-                autoencoder_malicious[0]
-            )
+            # --- Final Decision ---
+            is_malicious_flag = len(reasons) > 0
+            
+            if not is_malicious_flag:
+                return {"is_malicious": False, "risk_score": 0, "reason": "Benign"}
 
-            return is_malicious
+            return {
+                "is_malicious": True,
+                "risk_score": min(risk_score, 100),  # Cap score at 100
+                "reason": ", ".join(reasons)
+            }
         except Exception as e:
             print(f"Error during prediction: {e}")
-            return False
+            return {"is_malicious": False, "risk_score": 0, "reason": f"Prediction Error: {e}"}
 
 # Create a single instance of the model
 # TODO: Compute threshold dynamically or load from training

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, Info } from 'lucide-react';
 
 interface LogEntry {
   [key: string]: any;
@@ -10,7 +10,12 @@ interface MaliciousAlertsPanelProps {
 }
 
 const MaliciousAlertsPanel: React.FC<MaliciousAlertsPanelProps> = ({ logs }) => {
-  // This component is now also simplified to just render the logs it receives.
+  
+  const getRiskColor = (score: number) => {
+    if (score > 70) return 'bg-red-500 text-red-100';
+    if (score > 40) return 'bg-orange-500 text-orange-100';
+    return 'bg-yellow-500 text-yellow-100';
+  };
 
   return (
     <div className="w-1/2 p-4 overflow-y-auto h-[60vh] flex flex-col bg-gradient-to-br from-slate-900 to-slate-800 border-r border-red-500/20">
@@ -36,11 +41,27 @@ const MaliciousAlertsPanel: React.FC<MaliciousAlertsPanelProps> = ({ logs }) => 
         ) : (
           logs.map((log, index) => (
             <div key={index} className="text-sm p-4 border-b border-red-500/20 text-red-400 hover:bg-red-900/20">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-3">
                 <span className="font-bold text-red-300">⚠️ ALERT #{String(logs.length - index).padStart(4, '0')}</span>
-                <span className="text-red-400/70 text-xs font-mono">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                <div className="flex items-center space-x-2">
+                  <span className={`px-2 py-1 text-xs font-bold rounded-full ${getRiskColor(log.risk_score)}`}>
+                    RISK: {log.risk_score}
+                  </span>
+                  <span className="text-red-400/70 text-xs font-mono">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                </div>
               </div>
-              <pre className="inline-block w-full text-xs font-mono bg-red-950/20 p-3 rounded border border-red-500/20 overflow-x-auto whitespace-pre-wrap">
+
+              <div className="bg-red-950/30 border border-red-500/20 rounded-lg p-3 mb-3">
+                <div className="flex items-start space-x-2">
+                  <Info className="w-4 h-4 text-red-300 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-bold text-red-300">Reason</h4>
+                    <p className="text-red-400/90 text-xs">{log.reason}</p>
+                  </div>
+                </div>
+              </div>
+
+              <pre className="inline-block w-full text-xs font-mono bg-slate-900/50 p-3 rounded border border-slate-700 overflow-x-auto whitespace-pre-wrap">
                 {JSON.stringify(log, null, 2)}
               </pre>
             </div>
