@@ -196,32 +196,39 @@ MALICIOUS_TEMPLATES = {
         "features": {
             'Fwd Packets Length Total': lambda: random.randint(100, 400),
             'Fwd Packet Length Mean': lambda: random.uniform(50, 150),
-            'PSH Flag Count': 1, # PSH flag is common
+            'PSH Flag Count': 1,
             'Flow Duration': lambda: random.randint(5000, 20000),
         }
     },
+    # --- REVISED XSS ATTACK TEMPLATE ---
     "XSS_ATTACK": {
         "log_info": {"path": "/search?q=<script>alert('XSS')</script>", "user_agent": "Mozilla/5.0"},
         "features": {
-            'Fwd Packets Length Total': lambda: random.randint(500, 1500),
-            'Fwd Packet Length Max': lambda: random.randint(400, 1000),
-            'Fwd Packet Length Mean': lambda: random.uniform(200, 500),
-            'Fwd PSH Flags': 1, # PSH flag is common to push the script payload
-            'Flow Duration': lambda: random.randint(10000, 50000),
+            # Packet size indicators
+            'Fwd Packet Length Max': lambda: random.uniform(350, 700),
+            'Fwd Packet Length Mean': lambda: random.uniform(100, 250),
+            'Packet Length Max': lambda: random.uniform(350, 700),
+            'Packet Length Mean': lambda: random.uniform(80, 200),
+            'Avg Packet Size': lambda: random.uniform(80, 220),
+            'Avg Fwd Segment Size': lambda: random.uniform(100, 250),
+            
+            # Flow and timing indicators
+            'Flow IAT Mean': lambda: random.uniform(10000, 50000),
+            'Fwd IAT Mean': lambda: random.uniform(10000, 60000),
+            'Flow Duration': lambda: random.randint(40000, 200000),
+            
+            # Flag indicators
+            'Fwd PSH Flags': 1,
+            'PSH Flag Count': 1,
+            'ACK Flag Count': 1,
+            'FIN Flag Count': 0,
+            'SYN Flag Count': 0,
+            'RST Flag Count': 0,
+            'URG Flag Count': 0,
         }
     },
     "STATISTICAL_ANOMALY": {
-        "log_info": {"path": "/api/v2/metrics", "user_agent": "Internal-Scanner/1.0"},
-        "features": {
-            'Flow Duration': lambda: random.randint(1, 100),
-            'Total Fwd Packets': lambda: random.randint(1000, 5000),
-            'Flow Packets/s': lambda: random.uniform(100000, 900000),
-            'Fwd Packets/s': lambda: random.uniform(100000, 900000),
-            'Init Fwd Win Bytes': 0,
-        }
-    },
-    "STRUCTURAL_ANOMALY": {
-        "log_info": {"path": "/auth/token", "user_agent": "Go-http-client/1.1"},
+        "log_info": {"path": "/api/v2/metrics", "user_agent": "Internal-Scanner/1.0"}, 
         "features": {
             'Total Fwd Packets': 10,
             'Fwd Packets Length Total': 0,
@@ -250,7 +257,7 @@ def generate_log():
     1. A human-readable log dictionary for the frontend.
     2. A pandas DataFrame with 77 features for the ML model.
     """
-    is_malicious = random.random() < 0.3  # 30% chance of being malicious
+    is_malicious = random.random() < 0.1  # 30% chance of being malicious
 
     # --- 1. Generate the human-readable log ---
     log_dict = {
@@ -279,7 +286,7 @@ def generate_log():
     if is_malicious:
         # --- UPDATED: Randomly select an attack type ---
         attack_type = random.choice(list(MALICIOUS_TEMPLATES.keys()))
-        attack_template = MALICIOUS_TEMPLATES[attack_type]
+        attack_template = MALICIOUS_TEMPLATES['XSS_ATTACK']
         
         # --- CRITICAL CHANGE: Start from a BENIGN baseline, then apply attack features ---
         base_template = BENIGN_TEMPLATE.copy()
