@@ -191,53 +191,68 @@ MALICIOUS_TEMPLATE = {
 }
 
 MALICIOUS_TEMPLATES = {
-    "SQL_INJECTION": {
-        "log_info": {"path": "/products.php?id=1' OR '1'='1", "user_agent": "sqlmap/1.6"},
+    # Designed to be caught by the main LGBM classifier as a general attack.
+    # Simulates a port scan (SYN flood).
+    "PORT_SCAN": {
+        "log_info": {"path": "/.env", "user_agent": "Nmap Scanner"},
         "features": {
-            'Fwd Packets Length Total': lambda: random.randint(100, 400),
-            'Fwd Packet Length Mean': lambda: random.uniform(50, 150),
-            'PSH Flag Count': 1,
-            'Flow Duration': lambda: random.randint(5000, 20000),
+            'Flow Duration': lambda: random.randint(500000, 2000000),
+            'Total Fwd Packets': lambda: random.randint(5, 20),
+            'Total Backward Packets': 0,
+            'Fwd Packets Length Total': 0,
+            'Flow Packets/s': lambda: random.uniform(100, 1000),
+            'Fwd Packets/s': lambda: random.uniform(100, 1000),
+            'FIN Flag Count': 0,
+            'SYN Flag Count': 1, # The key indicator for a SYN scan
+            'RST Flag Count': 0,
+            'PSH Flag Count': 0,
+            'ACK Flag Count': 0,
+            'Init Fwd Win Bytes': 256,
+            'Init Bwd Win Bytes': 0,
         }
     },
-    # --- REVISED XSS ATTACK TEMPLATE ---
+    # Designed to be caught by the specialist XSS model.
     "XSS_ATTACK": {
         "log_info": {"path": "/search?q=<script>alert('XSS')</script>", "user_agent": "Mozilla/5.0"},
         "features": {
-            # Packet size indicators
             'Fwd Packet Length Max': lambda: random.uniform(350, 700),
             'Fwd Packet Length Mean': lambda: random.uniform(100, 250),
             'Packet Length Max': lambda: random.uniform(350, 700),
             'Packet Length Mean': lambda: random.uniform(80, 200),
             'Avg Packet Size': lambda: random.uniform(80, 220),
             'Avg Fwd Segment Size': lambda: random.uniform(100, 250),
-            
-            # Flow and timing indicators
             'Flow IAT Mean': lambda: random.uniform(10000, 50000),
-            'Fwd IAT Mean': lambda: random.uniform(10000, 60000),
             'Flow Duration': lambda: random.randint(40000, 200000),
-            
-            # Flag indicators
             'Fwd PSH Flags': 1,
             'PSH Flag Count': 1,
             'ACK Flag Count': 1,
-            'FIN Flag Count': 0,
-            'SYN Flag Count': 0,
-            'RST Flag Count': 0,
-            'URG Flag Count': 0,
         }
     },
-    "STATISTICAL_ANOMALY": {
-        "log_info": {"path": "/api/v2/metrics", "user_agent": "Internal-Scanner/1.0"}, 
+    # Designed to be caught by the Autoencoder.
+    # Creates a structural contradiction: packets exist, but their total length is zero.
+    "STRUCTURAL_ANOMALY": {
+        "log_info": {"path": "/auth/token", "user_agent": "Go-http-client/1.1"},
         "features": {
             'Total Fwd Packets': 10,
-            'Fwd Packets Length Total': 0,
-            'Fwd Packet Length Max': 0,
-            'Fwd Packet Length Mean': 0,
-            'Fwd Packet Length Std': 0,
+            'Total Backward Packets': 0,
+            'Fwd Packets Length Total': 0, # Contradiction
+            'Fwd Packet Length Max': 0,   # Contradiction
+            'Fwd Packet Length Mean': 0,  # Contradiction
             'Flow Bytes/s': 0,
             'ACK Flag Count': 0,
             'SYN Flag Count': 1,
+        }
+    },
+    # Designed to be caught by Isolation Forest.
+    # Creates a statistical outlier: extremely high packet rate in a short time.
+    "STATISTICAL_ANOMALY": {
+        "log_info": {"path": "/api/v2/metrics", "user_agent": "Internal-Scanner/1.0"},
+        "features": {
+            'Flow Duration': lambda: random.randint(1, 100),
+            'Total Fwd Packets': lambda: random.randint(1000, 5000),
+            'Flow Packets/s': lambda: random.uniform(100000, 900000), # Extremely high value
+            'Fwd Packets/s': lambda: random.uniform(100000, 900000),   # Extremely high value
+            'Init Fwd Win Bytes': 0,
         }
     }
 }
