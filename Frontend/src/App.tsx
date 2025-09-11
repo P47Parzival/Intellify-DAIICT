@@ -20,7 +20,10 @@ interface MapMarker {
 }
 
 function App() {
-  const [userRole, setUserRole] = useState<'soc' | 'user' | null>(null);
+  const [userRole, setUserRole] = useState<'soc' | 'user' | null>(() => {
+    // Check localStorage for a saved role when the app first loads.
+    return localStorage.getItem('userRole') as 'soc' | 'user' | null;
+  });
   const [rawLogs, setRawLogs] = useState<LogEntry[]>([]);
   const [maliciousLogs, setMaliciousLogs] = useState<LogEntry[]>([]);
   const [ipCounts, setIpCounts] = useState<{ [key: string]: number }>({});
@@ -28,6 +31,17 @@ function App() {
   const [maliciousMarkers, setMaliciousMarkers] = useState<MapMarker[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [activeView, setActiveView] = useState<'dashboard' | 'assets' | 'executive'>('dashboard');
+
+  // --- NEW: Handlers for login and logout to manage localStorage ---
+  const handleLogin = (role: 'soc' | 'user') => {
+    localStorage.setItem('userRole', role); // Save role to localStorage
+    setUserRole(role);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('userRole'); // Clear role from localStorage
+    setUserRole(null);
+  };
 
   useEffect(() => {
     if (userRole !== 'soc') return;
@@ -150,7 +164,7 @@ function App() {
             <div className="text-sm text-slate-400">
               {new Date().toLocaleTimeString()}
             </div>
-            <button onClick={() => setUserRole(null)} className="text-sm text-slate-400 hover:text-white">Logout</button>
+            <button onClick={handleLogout} className="text-sm text-slate-400 hover:text-white">Logout</button>
           </div>
         </div>
       </header>
@@ -192,6 +206,7 @@ function App() {
                   <AlertStream logs={rawLogs} />
                 </div>
               </div>
+              <ReportedIpPanel />
             </div>
 
             {/* Right Column: Security Analysis */}
@@ -215,7 +230,6 @@ function App() {
 
               {/* Security Alerts and Top IPs - Stacked Vertically */}
               <div className="grid grid-cols-1 gap-6">
-                <ReportedIpPanel />
                 <div className="bg-slate-900/40 backdrop-blur-md rounded-2xl border border-slate-700/30 shadow-lg transition-all duration-300 hover:shadow-xl">
                   <div className="px-6 py-5 bg-gradient-to-r from-red-950/60 to-pink-950/60 border-b border-slate-700/40">
                     <h3 className="text-xl font-semibold text-white flex items-center space-x-3">

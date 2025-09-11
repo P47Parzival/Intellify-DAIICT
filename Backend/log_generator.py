@@ -272,7 +272,7 @@ def generate_log():
     1. A human-readable log dictionary for the frontend.
     2. A pandas DataFrame with 77 features for the ML model.
     """
-    is_malicious = random.random() < 0.1  # 30% chance of being malicious
+    is_malicious = random.random() < 0.01  # 10% chance of being malicious
 
     # --- 1. Generate the human-readable log ---
     log_dict = {
