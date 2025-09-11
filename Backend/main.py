@@ -8,6 +8,15 @@ import pandas as pd
 from log_generator import generate_log
 from ml_model import model_instance
 
+# --- NEW: Mock Asset Inventory Database ---
+ASSET_INVENTORY = {
+    "8.90.36.189": {"owner": "Finance Dept", "purpose": "Payroll Server", "criticality": "High"},
+    "209.93.15.12": {"owner": "Marketing Team", "purpose": "Campaign Analytics", "criticality": "Medium"},
+    "104.28.15.99": {"owner": "Engineering", "purpose": "CI/CD Jenkins Runner", "criticality": "Medium"},
+    "45.33.32.156": {"owner": "Public Relations", "purpose": "Public Blog (WordPress)", "criticality": "Low"},
+    # Add more simulated assets that match IPs your generator might create
+}
+
 app = FastAPI()
 
 # CORS middleware
@@ -18,6 +27,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/api/assets")
+async def get_assets():
+    return ASSET_INVENTORY
 
 class ConnectionManager:
     """Manages active WebSocket connections."""
@@ -61,9 +74,10 @@ async def log_processing_task():
             
             # Check the boolean flag from the result dictionary
             if prediction_result["is_malicious"]:
-                # Add risk score and reason to the payload for malicious alerts
+                # Add risk score, reason, and playbook to the payload
                 payload['risk_score'] = prediction_result['risk_score']
                 payload['reason'] = prediction_result['reason']
+                payload['playbook'] = prediction_result['playbook']
                 
                 # Broadcast the enriched payload to processed clients
                 await processed_manager.broadcast(json.dumps(payload))

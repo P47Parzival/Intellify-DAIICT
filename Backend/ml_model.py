@@ -4,6 +4,36 @@ import pandas as pd
 from tensorflow.keras.models import load_model
 import os
 
+# --- NEW: Remediation Playbooks ---
+# Maps a detection reason to a list of actionable steps for an incident responder.
+REMEDIATION_PLAYBOOKS = {
+    "General Malicious Pattern (LGBM)": [
+        "1. Isolate the host machine immediately.",
+        "2. Analyze running processes for suspicious activity.",
+        "3. Review firewall logs for other connections from the source IP."
+    ],
+    "Potential XSS Attack (Specialist LGBM)": [
+        "1. Block the attacker's IP at the Web Application Firewall (WAF).",
+        "2. Review and sanitize input fields on the affected web application.",
+        "3. Scan the application for other XSS vulnerabilities."
+    ],
+    "Anomalous Traffic (Isolation Forest)": [
+        "1. Investigate the source IP against threat intelligence feeds.",
+        "2. Analyze the flow to determine the nature of the anomaly (e.g., DDoS, scan).",
+        "3. Temporarily rate-limit the source IP if traffic volume is high."
+    ],
+    "Anomalous Traffic (One-Class SVM)": [
+        "1. Cross-reference the traffic pattern with historical data for this host.",
+        "2. Determine if the anomalous behavior corresponds to a new deployment or legitimate activity.",
+        "3. If suspicious, escalate for deeper packet capture and analysis."
+    ],
+    "Structural Anomaly (Autoencoder)": [
+        "1. Verify the protocol and application generating the traffic.",
+        "2. Check for malformed packets or protocol abuse.",
+        "3. Ensure network hardware and drivers are up to date."
+    ]
+}
+
 class AnomalyModel:
     def __init__(self, 
                  lgb_main_path="lgb_main_smote_weighted.pkl",
@@ -98,16 +128,24 @@ class AnomalyModel:
             is_malicious_flag = len(reasons) > 0
             
             if not is_malicious_flag:
-                return {"is_malicious": False, "risk_score": 0, "reason": "Benign"}
+                return {"is_malicious": False, "risk_score": 0, "reason": "Benign", "playbook": []}
+
+            # Combine reasons and look up playbooks
+            final_reason = ", ".join(reasons)
+            playbook = []
+            for reason in reasons:
+                if reason in REMEDIATION_PLAYBOOKS:
+                    playbook.extend(REMEDIATION_PLAYBOOKS[reason])
 
             return {
                 "is_malicious": True,
-                "risk_score": min(risk_score, 100),  # Cap score at 100
-                "reason": ", ".join(reasons)
+                "risk_score": min(risk_score, 100),
+                "reason": final_reason,
+                "playbook": list(dict.fromkeys(playbook)) # Get unique playbook steps
             }
         except Exception as e:
             print(f"Error during prediction: {e}")
-            return {"is_malicious": False, "risk_score": 0, "reason": f"Prediction Error: {e}"}
+            return {"is_malicious": False, "risk_score": 0, "reason": f"Prediction Error: {e}", "playbook": []}
 
 # Create a single instance of the model
 # TODO: Compute threshold dynamically or load from training
