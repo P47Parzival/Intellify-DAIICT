@@ -19,6 +19,16 @@ def init_db():
                 features TEXT NOT NULL
             )
         ''')
+        # --- NEW: User Reported IPs Table ---
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS reported_ips (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ip TEXT NOT NULL UNIQUE,
+                report_count INTEGER DEFAULT 1,
+                last_reported_at TEXT NOT NULL,
+                status TEXT DEFAULT 'New' 
+            )
+        ''')
         conn.commit()
 
 def add_alert(alert_data: dict):
@@ -37,6 +47,30 @@ def add_alert(alert_data: dict):
             json.dumps(alert_data['features'])
         ))
         conn.commit()
+
+# --- NEW: Function to handle user-reported IPs ---
+def report_suspicious_ip(ip: str):
+    """Adds a new suspicious IP or increments the report count of an existing one."""
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        # Try to insert a new IP. If it's a duplicate, increment the count.
+        cursor.execute('''
+            INSERT INTO reported_ips (ip, last_reported_at) VALUES (?, ?)
+            ON CONFLICT(ip) DO UPDATE SET
+                report_count = report_count + 1,
+                last_reported_at = excluded.last_reported_at
+        ''', (ip, datetime.now().isoformat()))
+        conn.commit()
+
+# --- NEW: Function to get all reported IPs for the SOC team ---
+def get_reported_ips() -> list:
+    """Fetches all user-reported IPs."""
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM reported_ips ORDER BY last_reported_at DESC")
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
 
 def get_alerts_in_range(days: int) -> list:
     """Fetches alerts from the database within a given number of past days."""

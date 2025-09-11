@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import pandas as pd
 
+from pydantic import BaseModel
 from log_generator import generate_log
 from ml_model import model_instance
 from collections import Counter
@@ -33,6 +34,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class ReportPayload(BaseModel):
+    ip: str
+
+@app.post("/api/report_ip")
+async def report_ip(payload: ReportPayload):
+    # Basic IP validation could be added here
+    database.report_suspicious_ip(payload.ip)
+    return {"message": f"IP address {payload.ip} reported successfully. Thank you!"}
+
+@app.get("/api/reported_ips")
+async def get_reported_ips_endpoint():
+    return database.get_reported_ips()
 
 @app.get("/api/kpis")
 async def get_kpis(range_days: int = 1): # Default to 1 day (24h)

@@ -6,6 +6,9 @@ import TopIPs from './components/TopIPs';
 import MaliciousMap from './components/MaliciousMap';
 import AssetPage from './components/AssetPage';
 import ExecutiveDashboard from './components/ExecutiveDashboard';
+import LoginPage from './components/LoginPage';
+import ReportIpPage from './components/ReportIpPage';
+import ReportedIpPanel from './components/ReportedIpPanel';
 
 interface LogEntry {
   [key: string]: any;
@@ -17,15 +20,18 @@ interface MapMarker {
 }
 
 function App() {
+  const [userRole, setUserRole] = useState<'soc' | 'user' | null>(null);
   const [rawLogs, setRawLogs] = useState<LogEntry[]>([]);
   const [maliciousLogs, setMaliciousLogs] = useState<LogEntry[]>([]);
   const [ipCounts, setIpCounts] = useState<{ [key: string]: number }>({});
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
   const [maliciousMarkers, setMaliciousMarkers] = useState<MapMarker[]>([]);
   const [isConnected, setIsConnected] = useState(false);
-  const [activeView, setActiveView] = useState<'dashboard' | 'assets' | 'executive'>('dashboard'); // Added 'executive' to state type
+  const [activeView, setActiveView] = useState<'dashboard' | 'assets' | 'executive'>('dashboard');
 
   useEffect(() => {
+    if (userRole !== 'soc') return;
+
     // --- WebSocket for ALL traffic ---
     const rawWs = new WebSocket('ws://localhost:8000/ws/raw');
 
@@ -72,8 +78,18 @@ function App() {
       rawWs.close();
       processedWs.close();
     };
-  }, []);
+  }, [userRole]);
 
+  // Main render logic based on user role
+  if (!userRole) {
+    return <LoginPage onLogin={setUserRole} />;
+  }
+
+  if (userRole === 'user') {
+    return <ReportIpPage />;
+  }
+
+  // SOC view
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
@@ -134,6 +150,7 @@ function App() {
             <div className="text-sm text-slate-400">
               {new Date().toLocaleTimeString()}
             </div>
+            <button onClick={() => setUserRole(null)} className="text-sm text-slate-400 hover:text-white">Logout</button>
           </div>
         </div>
       </header>
@@ -198,6 +215,7 @@ function App() {
 
               {/* Security Alerts and Top IPs - Stacked Vertically */}
               <div className="grid grid-cols-1 gap-6">
+                <ReportedIpPanel />
                 <div className="bg-slate-900/40 backdrop-blur-md rounded-2xl border border-slate-700/30 shadow-lg transition-all duration-300 hover:shadow-xl">
                   <div className="px-6 py-5 bg-gradient-to-r from-red-950/60 to-pink-950/60 border-b border-slate-700/40">
                     <h3 className="text-xl font-semibold text-white flex items-center space-x-3">
@@ -231,7 +249,7 @@ function App() {
         ) : activeView === 'assets' ? (
           <AssetPage />
         ) : (
-          <ExecutiveDashboard/>
+          <ExecutiveDashboard />
         )}
       </main>
     </div>
