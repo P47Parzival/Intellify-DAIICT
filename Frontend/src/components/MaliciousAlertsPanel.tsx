@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Info, ListChecks, Ban, Server } from 'lucide-react';
+import { ShieldAlert, Info, ListChecks, Ban, Server, ChevronDown } from 'lucide-react';
 
 interface LogEntry {
   [key: string]: any;
@@ -18,6 +18,7 @@ interface Asset {
 const MaliciousAlertsPanel: React.FC<MaliciousAlertsPanelProps> = ({ logs }) => {
   const [blockedIPs, setBlockedIPs] = useState<string[]>([]);
   const [assets, setAssets] = useState<{ [key: string]: Asset }>({});
+  const [expandedAlerts, setExpandedAlerts] = useState<number[]>([]); // State to track expanded alerts
 
   useEffect(() => {
     // Fetch asset data when the component mounts
@@ -33,12 +34,20 @@ const MaliciousAlertsPanel: React.FC<MaliciousAlertsPanelProps> = ({ logs }) => 
     }
   };
 
+  const toggleDetails = (index: number) => {
+    setExpandedAlerts(prev =>
+      prev.includes(index)
+        ? prev.filter(i => i !== index)
+        : [...prev, index]
+    );
+  };
+
   const getRiskColor = (score: number) => {
     if (score > 70) return 'bg-red-500 text-red-100';
     if (score > 40) return 'bg-orange-500 text-orange-100';
     return 'bg-yellow-500 text-yellow-100';
   };
-  
+
   const getCriticalityColor = (level: string) => {
     if (level === 'High') return 'text-red-400 border-red-500/50 bg-red-900/20';
     if (level === 'Medium') return 'text-orange-400 border-orange-500/50 bg-orange-900/20';
@@ -131,8 +140,27 @@ const MaliciousAlertsPanel: React.FC<MaliciousAlertsPanelProps> = ({ logs }) => 
                     <Server className="w-3 h-3" />
                     <span>Isolate Host</span>
                   </button>
+
+                  {/* --- NEW: Details Dropdown Button --- */}
+                  <button 
+                    onClick={() => toggleDetails(index)}
+                    className="flex items-center space-x-2 px-3 py-1 text-xs font-semibold text-white bg-slate-600/50 rounded-md border border-slate-500/80 hover:bg-slate-600/80 transition-colors"
+                  >
+                    <span>{expandedAlerts.includes(index) ? 'Hide Details' : 'Show Details'}</span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${expandedAlerts.includes(index) ? 'rotate-180' : ''}`} />
+                  </button>
                 </div>
 
+                {/* --- NEW: Collapsible Details Panel --- */}
+                {expandedAlerts.includes(index) && (
+                  <div className="mt-4 bg-slate-900/70 border border-slate-700 rounded-lg p-3">
+                    <h5 className="font-bold text-slate-300 mb-2">Model Feature Data</h5>
+                    <pre className="text-xs font-mono text-slate-400 whitespace-pre-wrap overflow-x-auto max-h-60 stream-scrollbar">
+                      {JSON.stringify(log.features, null, 2)}
+                    </pre>
+                  </div>
+                )}
+  
               </div>
             );
           })
@@ -155,7 +183,7 @@ const MaliciousAlertsPanel: React.FC<MaliciousAlertsPanelProps> = ({ logs }) => 
           background: rgba(239, 68, 68, 0.7);
         }
       `}</style>
-    </div>
+    </div >
   );
 };
 
