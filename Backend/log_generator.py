@@ -286,7 +286,7 @@ def generate_log():
     if is_malicious:
         # --- UPDATED: Randomly select an attack type ---
         attack_type = random.choice(list(MALICIOUS_TEMPLATES.keys()))
-        attack_template = MALICIOUS_TEMPLATES['XSS_ATTACK']
+        attack_template = MALICIOUS_TEMPLATES[attack_type]
         
         # --- CRITICAL CHANGE: Start from a BENIGN baseline, then apply attack features ---
         base_template = BENIGN_TEMPLATE.copy()

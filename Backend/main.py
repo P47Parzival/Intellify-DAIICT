@@ -8,6 +8,7 @@ import pandas as pd
 from log_generator import generate_log
 from ml_model import model_instance
 from collections import Counter
+import database
 from datetime import datetime, timedelta
 
 # --- NEW: In-memory store for historical alerts ---
@@ -34,41 +35,46 @@ app.add_middleware(
 )
 
 @app.get("/api/kpis")
-async def get_kpis():
-    now = datetime.now()
-    last_24h = now - timedelta(hours=24)
+async def get_kpis(range_days: int = 1): # Default to 1 day (24h)
     
-    # Filter alerts from the last 24 hours
-    recent_alerts = [a for a in HISTORICAL_ALERTS if datetime.fromisoformat(a['timestamp']) > last_24h]
+    alerts = database.get_alerts_in_range(days=range_days)
     
     # 1. Alerts by Type (Reason)
-    alerts_by_type = Counter(alert['reason'] for alert in recent_alerts)
+    alerts_by_type = Counter(alert['reason'] for alert in alerts)
     
     # 2. Alerts by Asset Criticality
     alerts_by_criticality = Counter()
-    for alert in recent_alerts:
+    for alert in alerts:
         asset = ASSET_INVENTORY.get(alert['ip'])
         if asset:
             alerts_by_criticality[asset['criticality']] += 1
         else:
             alerts_by_criticality['Unknown'] += 1
             
-    # 3. Alerts over time (last 24 hours, by hour)
-    alerts_over_time = { (now - timedelta(hours=i)).strftime('%H:00'): 0 for i in range(24) }
-    for alert in recent_alerts:
-        hour_key = datetime.fromisoformat(alert['timestamp']).strftime('%H:00')
+    # 3. Alerts over time (by day for multi-day, by hour for 24h)
+    if range_days == 1:
+        time_format = '%H:00'
+        time_delta_unit = 'hours'
+        num_units = 24
+    else:
+        time_format = '%Y-%m-%d'
+        time_delta_unit = 'days'
+        num_units = range_days
+
+    alerts_over_time = { (datetime.now() - timedelta(**{time_delta_unit: i})).strftime(time_format): 0 for i in range(num_units) }
+    for alert in alerts:
+        hour_key = datetime.fromisoformat(alert['timestamp']).strftime(time_format)
         if hour_key in alerts_over_time:
             alerts_over_time[hour_key] += 1
             
-    # Format for charting library
     alerts_over_time_list = sorted(
         [{"time": key, "alerts": value} for key, value in alerts_over_time.items()],
         key=lambda x: x['time']
     )
 
     return {
-        "total_alerts_24h": len(recent_alerts),
-        "average_risk_score": sum(a['risk_score'] for a in recent_alerts) / len(recent_alerts) if recent_alerts else 0,
+        "total_alerts": len(alerts),
+        "average_risk_score": sum(a['risk_score'] for a in alerts) / len(alerts) if alerts else 0,
         "alerts_by_type": [{"name": name, "value": value} for name, value in alerts_by_type.items()],
         "alerts_by_criticality": [{"name": name, "value": value} for name, value in alerts_by_criticality.items()],
         "alerts_over_time": alerts_over_time_list
@@ -125,8 +131,8 @@ async def log_processing_task():
                 payload['reason'] = prediction_result['reason']
                 payload['playbook'] = prediction_result['playbook']
                 
-                # --- NEW: Store alert for KPI calculation ---
-                HISTORICAL_ALERTS.append(payload)
+                # --- UPDATED: Store alert in the database ---
+                database.add_alert(payload)
                 
                 # Broadcast the enriched payload to processed clients
                 await processed_manager.broadcast(json.dumps(payload))
@@ -137,7 +143,7 @@ async def log_processing_task():
 
 @app.on_event("startup")
 async def startup_event():
-    """Start the background task when the app starts."""
+    database.init_db()  # Initialize the database on server start
     asyncio.create_task(log_processing_task())
 
 @app.websocket("/ws/raw")
