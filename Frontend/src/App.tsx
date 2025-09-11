@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import AlertStream from './components/AlertStream';
 import MaliciousAlertsPanel from './components/MaliciousAlertsPanel';
 import WorldMap from './components/WorldMap';
 import TopIPs from './components/TopIPs';
 import MaliciousMap from './components/MaliciousMap';
-import AssetPage from './components/AssetPage'; // Import the new page component
+import AssetPage from './components/AssetPage';
+import ExecutiveDashboard from './components/ExecutiveDashboard';
 
 interface LogEntry {
   [key: string]: any;
@@ -22,7 +23,7 @@ function App() {
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
   const [maliciousMarkers, setMaliciousMarkers] = useState<MapMarker[]>([]);
   const [isConnected, setIsConnected] = useState(false);
-  const [activeView, setActiveView] = useState<'dashboard' | 'assets'>('dashboard'); // State to control the view
+  const [activeView, setActiveView] = useState<'dashboard' | 'assets' | 'executive'>('dashboard'); // Added 'executive' to state type
 
   useEffect(() => {
     // --- WebSocket for ALL traffic ---
@@ -110,6 +111,16 @@ function App() {
               }`}
             >
               Asset Inventory
+            </button>
+            <button
+              onClick={() => setActiveView('executive')}
+              className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${
+                activeView === 'executive'
+                  ? 'bg-blue-500 text-white'
+                  : 'text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              Executive View
             </button>
           </nav>
 
@@ -217,8 +228,10 @@ function App() {
               </div>
             </div>
           </div>
-        ) : (
+        ) : activeView === 'assets' ? (
           <AssetPage />
+        ) : (
+          <ExecutiveDashboard/>
         )}
       </main>
     </div>

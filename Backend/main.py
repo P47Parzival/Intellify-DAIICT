@@ -7,6 +7,11 @@ import pandas as pd
 
 from log_generator import generate_log
 from ml_model import model_instance
+from collections import Counter
+from datetime import datetime, timedelta
+
+# --- NEW: In-memory store for historical alerts ---
+HISTORICAL_ALERTS = []
 
 # --- NEW: Mock Asset Inventory Database ---
 ASSET_INVENTORY = {
@@ -27,6 +32,47 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/api/kpis")
+async def get_kpis():
+    now = datetime.now()
+    last_24h = now - timedelta(hours=24)
+    
+    # Filter alerts from the last 24 hours
+    recent_alerts = [a for a in HISTORICAL_ALERTS if datetime.fromisoformat(a['timestamp']) > last_24h]
+    
+    # 1. Alerts by Type (Reason)
+    alerts_by_type = Counter(alert['reason'] for alert in recent_alerts)
+    
+    # 2. Alerts by Asset Criticality
+    alerts_by_criticality = Counter()
+    for alert in recent_alerts:
+        asset = ASSET_INVENTORY.get(alert['ip'])
+        if asset:
+            alerts_by_criticality[asset['criticality']] += 1
+        else:
+            alerts_by_criticality['Unknown'] += 1
+            
+    # 3. Alerts over time (last 24 hours, by hour)
+    alerts_over_time = { (now - timedelta(hours=i)).strftime('%H:00'): 0 for i in range(24) }
+    for alert in recent_alerts:
+        hour_key = datetime.fromisoformat(alert['timestamp']).strftime('%H:00')
+        if hour_key in alerts_over_time:
+            alerts_over_time[hour_key] += 1
+            
+    # Format for charting library
+    alerts_over_time_list = sorted(
+        [{"time": key, "alerts": value} for key, value in alerts_over_time.items()],
+        key=lambda x: x['time']
+    )
+
+    return {
+        "total_alerts_24h": len(recent_alerts),
+        "average_risk_score": sum(a['risk_score'] for a in recent_alerts) / len(recent_alerts) if recent_alerts else 0,
+        "alerts_by_type": [{"name": name, "value": value} for name, value in alerts_by_type.items()],
+        "alerts_by_criticality": [{"name": name, "value": value} for name, value in alerts_by_criticality.items()],
+        "alerts_over_time": alerts_over_time_list
+    }
 
 @app.get("/api/assets")
 async def get_assets():
@@ -78,6 +124,9 @@ async def log_processing_task():
                 payload['risk_score'] = prediction_result['risk_score']
                 payload['reason'] = prediction_result['reason']
                 payload['playbook'] = prediction_result['playbook']
+                
+                # --- NEW: Store alert for KPI calculation ---
+                HISTORICAL_ALERTS.append(payload)
                 
                 # Broadcast the enriched payload to processed clients
                 await processed_manager.broadcast(json.dumps(payload))
