@@ -11,9 +11,18 @@ const AssetPage = () => {
   const [assets, setAssets] = useState<{ [key: string]: Asset }>({});
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/assets')
-      .then(res => res.json())
-      .then(data => setAssets(data));
+    const fetchData = () => {
+      fetch('http://localhost:8000/api/assets')
+        .then(res => res.json())
+        .then(data => setAssets(data))
+        .catch(err => console.error("Failed to fetch assets:", err));
+    };
+
+    fetchData(); // Fetch data immediately on component mount
+    const intervalId = setInterval(fetchData, 5000); // Set up polling to refresh every 5 seconds
+
+    // Cleanup function to clear the interval when the component unmounts
+    return () => clearInterval(intervalId);
   }, []);
 
   const getCriticalityColor = (level: string) => {
@@ -36,7 +45,12 @@ const AssetPage = () => {
             </tr>
           </thead>
           <tbody className="bg-slate-800/50 divide-y divide-slate-700/50">
-            {Object.entries(assets).map(([ip, asset]) => (
+            {Object.entries(assets)
+              .sort(([, a], [, b]) => { 
+                const order = { High: 0, Medium: 1, Low: 2 };
+                return order[a.criticality] - order[b.criticality];
+              })
+              .map(([ip, asset]) => (
               <tr key={ip}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-blue-300">{ip}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{asset.purpose}</td>

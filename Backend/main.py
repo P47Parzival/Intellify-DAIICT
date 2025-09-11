@@ -113,6 +113,17 @@ async def log_processing_task():
         try:
             log_dict, feature_df = generate_log()
 
+            # --- NEW: Asset Auto-Discovery Logic ---
+            # Check if the IP from the new log exists in our inventory.
+            # If not, add it with default "unassigned" values.
+            ip_address = log_dict.get("ip")
+            if ip_address and ip_address not in ASSET_INVENTORY:
+                ASSET_INVENTORY[ip_address] = {
+                    "owner": "Unassigned",
+                    "purpose": "Auto-Discovered Host",
+                    "criticality": "Low"
+                }
+
             # Combine metadata and feature data into a single payload
             feature_data_dict = feature_df.iloc[0].to_dict()
             payload = log_dict
