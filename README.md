@@ -4,6 +4,35 @@ AnomalyForge is a comprehensive, real-time security intelligence platform design
 
 Video Link : https://drive.google.com/file/d/1BWrs1hgQ96ievQgb5AeCOIA_vWZEvp_s/view?usp=drive_link 
 
+### Platform Showcase
+<table>
+  <tr>
+    <td align="center"><strong>Main Dashboard</strong><br>Real-time maps showing global traffic and malicious attack origins.</td>
+    <td align="center"><strong>Asset Inventory</strong><br>A dynamic, auto-discovered list of all network assets and their business context.</td>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/P47Parzival/Intellify-DAIICT/blob/main/dashboard.png?raw=true" alt="Main Dashboard View"></td>
+    <td><img src="https://github.com/P47Parzival/Intellify-DAIICT/blob/main/charts.png?raw=true" alt="Asset Inventory Page"></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Executive KPI Dashboard</strong><br>High-level strategic insights with trends for alerts, risk, and asset criticality.</td>
+    <td align="center"><strong>Actionable Security Alerts</strong><br>Context-rich alerts with risk scores, playbooks, and deep-dive capabilities.</td>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/P47Parzival/Intellify-DAIICT/blob/main/dashboard.jpg?raw=true" alt="Executive KPI Dashboard"></td>
+    <td><img src="https://github.com/P47Parzival/Intellify-DAIICT/blob/main/asset.jpg?raw=true" alt="Security Alerts Panel"></td>
+  </tr>
+   <tr>
+    <td align="center"><strong>SOC Authentication</strong><br>Secure, role-based access control for SOC team members.</td>
+    <td align="center"></td>
+  </tr>
+   <tr>
+    <td><img src="https://github.com/P47Parzival/Intellify-DAIICT/blob/main/login.png?raw=true" alt="SOC Authentication Modal"></td>
+    <td></td>
+  </tr>
+</table>
+
+---
 ![AnomalyForge Dashboard](https://github.com/P47Parzival/Intellify-DAIICT/blob/main/Intellify-DAIICT.jpg?raw=true) 
 
 ---
