@@ -19,14 +19,15 @@ def init_db():
                 features TEXT NOT NULL
             )
         ''')
-        # --- NEW: User Reported IPs Table ---
+        # --- UPDATED: User Reported IPs Table ---
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS reported_ips (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ip TEXT NOT NULL UNIQUE,
                 report_count INTEGER DEFAULT 1,
                 last_reported_at TEXT NOT NULL,
-                status TEXT DEFAULT 'New' 
+                status TEXT DEFAULT 'New',
+                categories TEXT 
             )
         ''')
         conn.commit()
