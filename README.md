@@ -2,7 +2,9 @@
 
 AnomalyForge is a comprehensive, real-time security intelligence platform designed to empower an entire organization—from SOC analysts to executives—in the fight against cyber threats. It transforms the traditional, reactive security model into a proactive, intelligence-driven operation by providing multi-layered AI detection, deep contextual enrichment, and role-specific, actionable insights.
 
-![AnomalyForge Dashboard](./intellify-DAIICT.jpg) 
+Video Link : https://drive.google.com/file/d/1BWrs1hgQ96ievQgb5AeCOIA_vWZEvp_s/view?usp=drive_link 
+
+![AnomalyForge Dashboard](https://github.com/P47Parzival/Intellify-DAIICT/blob/main/Intellify-DAIICT.jpg?raw=true) 
 
 ---
 
