@@ -12,15 +12,15 @@ Video Link : https://drive.google.com/file/d/1BWrs1hgQ96ievQgb5AeCOIA_vWZEvp_s/v
   </tr>
   <tr>
     <td><img src="https://github.com/P47Parzival/Intellify-DAIICT/blob/main/dashboard.png?raw=true" alt="Main Dashboard View"></td>
-    <td><img src="https://github.com/P47Parzival/Intellify-DAIICT/blob/main/charts.png?raw=true" alt="Asset Inventory Page"></td>
+    <td><img src="https://github.com/P47Parzival/Intellify-DAIICT/blob/main/asset.png?raw=true" alt="Asset Inventory Page"></td>
   </tr>
   <tr>
     <td align="center"><strong>Executive KPI Dashboard</strong><br>High-level strategic insights with trends for alerts, risk, and asset criticality.</td>
     <td align="center"><strong>Actionable Security Alerts</strong><br>Context-rich alerts with risk scores, playbooks, and deep-dive capabilities.</td>
   </tr>
   <tr>
-    <td><img src="https://github.com/P47Parzival/Intellify-DAIICT/blob/main/dashboard.jpg?raw=true" alt="Executive KPI Dashboard"></td>
-    <td><img src="https://github.com/P47Parzival/Intellify-DAIICT/blob/main/asset.jpg?raw=true" alt="Security Alerts Panel"></td>
+    <td><img src="https://github.com/P47Parzival/Intellify-DAIICT/blob/main/charts.png?raw=true" alt="Executive KPI Dashboard"></td>
+    <td><img src="https://github.com/P47Parzival/Intellify-DAIICT/blob/main/threats.png?raw=true" alt="Security Alerts Panel"></td>
   </tr>
    <tr>
     <td align="center"><strong>SOC Authentication</strong><br>Secure, role-based access control for SOC team members.</td>
