@@ -37,12 +37,16 @@ app.add_middleware(
 
 class ReportPayload(BaseModel):
     ip: str
+    categories: List[str]
 
 @app.post("/api/report_ip")
 async def report_ip(payload: ReportPayload):
     # Basic IP validation could be added here
-    database.report_suspicious_ip(payload.ip)
+    if not payload.categories:
+        return {"message": "Please select at least one reason for the report."}, 400
+    database.report_suspicious_ip(payload.ip, payload.categories)
     return {"message": f"IP address {payload.ip} reported successfully. Thank you!"}
+
 
 @app.get("/api/reported_ips")
 async def get_reported_ips_endpoint():

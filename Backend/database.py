@@ -49,29 +49,41 @@ def add_alert(alert_data: dict):
         conn.commit()
 
 # --- NEW: Function to handle user-reported IPs ---
-def report_suspicious_ip(ip: str):
+def report_suspicious_ip(ip: str, categories: list[str]):
     """Adds a new suspicious IP or increments the report count of an existing one."""
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
-        # Try to insert a new IP. If it's a duplicate, increment the count.
+        categories_json = json.dumps(categories)
+        
+        # Try to insert a new IP. If it's a duplicate, update the count and timestamp.
         cursor.execute('''
-            INSERT INTO reported_ips (ip, last_reported_at) VALUES (?, ?)
+            INSERT INTO reported_ips (ip, last_reported_at, categories) VALUES (?, ?, ?)
             ON CONFLICT(ip) DO UPDATE SET
                 report_count = report_count + 1,
                 last_reported_at = excluded.last_reported_at
-        ''', (ip, datetime.now().isoformat()))
+        ''', (ip, datetime.now().isoformat(), categories_json))
         conn.commit()
 
 # --- NEW: Function to get all reported IPs for the SOC team ---
-def get_reported_ips() -> list:
-    """Fetches all user-reported IPs."""
+def get_reported_ips(limit: int = 10) -> list:
+    """Fetches user-reported IPs, limited to the most recent entries."""
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM reported_ips ORDER BY last_reported_at DESC")
+        cursor.execute("SELECT * FROM reported_ips ORDER BY last_reported_at DESC LIMIT ?", (limit,))
         rows = cursor.fetchall()
-        return [dict(row) for row in rows]
-
+        
+        results = []
+        for row in rows:
+            row_dict = dict(row)
+            # Safely parse categories JSON
+            try:
+                row_dict['categories'] = json.loads(row_dict['categories']) if row_dict['categories'] else []
+            except (json.JSONDecodeError, TypeError):
+                row_dict['categories'] = []
+            results.append(row_dict)
+        return results
+    
 def get_alerts_in_range(days: int) -> list:
     """Fetches alerts from the database within a given number of past days."""
     start_date = datetime.now() - timedelta(days=days)
